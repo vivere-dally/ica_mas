@@ -3,12 +3,15 @@ package viveredally.agent;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.UnreadableException;
 import lombok.SneakyThrows;
 import viveredally.domain.Specs;
 import viveredally.domain.Task;
 import viveredally.domain.TaskState;
+import viveredally.messages.TerminateMessage;
 import viveredally.util.RandomSpecsProvider;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Random;
 import java.util.UUID;
@@ -48,13 +51,22 @@ public class WorkerAgent extends Agent {
         this.isAlive.set(true);
         final var self = this;
         this.addBehaviour(new CyclicBehaviour(this) {
-            @SneakyThrows
             @Override
+            @SneakyThrows
             public void action() {
                 ACLMessage message = receive();
                 if (message == null) {
                     block();
                 } else {
+                    try {
+                        Serializable terminateMessage = message.getContentObject();
+                        if (terminateMessage instanceof TerminateMessage) {
+                            doDelete();
+                            return;
+                        }
+                    } catch (UnreadableException ignored) {
+                    }
+
                     var content = message.getContent();
                     Specs taskSpecs = self.randomSpecsProvider.getTaskSpecs();
 
@@ -79,10 +91,12 @@ public class WorkerAgent extends Agent {
         super.takeDown();
 
         this.isAlive.set(false);
+        this.executorService.shutdown();
+        log(getAID(), "terminated");
     }
 
     private void compute() {
-        Thread thread = new Thread(() -> {
+        new Thread(() -> {
             while (isAlive.get()) {
                 if (tasks.isEmpty()) {
                     synchronized (this) {
@@ -144,8 +158,6 @@ public class WorkerAgent extends Agent {
                     }
                 });
             }
-        });
-
-        thread.start();
+        }).start();
     }
 }

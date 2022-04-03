@@ -1,10 +1,15 @@
 package viveredally.util;
 
+import jade.core.AID;
 import viveredally.domain.Task;
 
 import java.time.LocalDateTime;
 
 public class Logger {
+    public static void log(AID aid, String message) {
+        System.out.println(aid + ": " + message);
+    }
+
     public static void log(Task task) {
         String s = task.getAid() +
                 ": Task " +

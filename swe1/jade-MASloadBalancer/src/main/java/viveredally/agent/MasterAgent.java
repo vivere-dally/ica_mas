@@ -6,6 +6,7 @@ import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.wrapper.StaleProxyException;
 import lombok.SneakyThrows;
+import viveredally.messages.TerminateMessage;
 import viveredally.util.RoundRobinProvider;
 
 import java.util.Arrays;
@@ -13,6 +14,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import static viveredally.util.Logger.log;
 
 public class MasterAgent extends Agent {
     private List<AID> agents;
@@ -46,6 +49,21 @@ public class MasterAgent extends Agent {
         generateLoad();
     }
 
+    @SneakyThrows
+    @Override
+    protected void takeDown() {
+        super.takeDown();
+
+        for (AID agent : this.agents) {
+            var requestMessage = new ACLMessage(ACLMessage.INFORM);
+            requestMessage.setContentObject(new TerminateMessage());
+            requestMessage.addReceiver(agent);
+            send(requestMessage);
+        }
+
+        log(getAID(), "terminated");
+    }
+
     private void handleSetup() throws StaleProxyException {
         var args = Arrays.stream(getArguments()).toArray(Integer[]::new);
         int numberOfWorkers = args[0];
@@ -67,15 +85,22 @@ public class MasterAgent extends Agent {
         this.roundRobinProvider = new RoundRobinProvider(numberOfWorkers);
     }
 
-    @SneakyThrows
     private void generateLoad() {
-        var masterAID = new AID("Master", AID.ISLOCALNAME);
-        for (int i = 0; i < 100; i++) {
-            var requestMessage = new ACLMessage(ACLMessage.INFORM);
-            requestMessage.setContent(UUID.randomUUID().toString());
-            requestMessage.addReceiver(masterAID);
-            send(requestMessage);
-            Thread.sleep(new Random().nextInt(2000));
-        }
+        new Thread(() -> {
+            var masterAID = new AID("Master", AID.ISLOCALNAME);
+            for (int i = 0; i < 5; i++) {
+                var requestMessage = new ACLMessage(ACLMessage.INFORM);
+                requestMessage.setContent(UUID.randomUUID().toString());
+                requestMessage.addReceiver(masterAID);
+                send(requestMessage);
+                try {
+                    Thread.sleep(new Random().nextInt(2000));
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            doDelete();
+        }).start();
     }
 }
