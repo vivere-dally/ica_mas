@@ -4,23 +4,19 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.UnreadableException;
 import jade.wrapper.StaleProxyException;
 import lombok.SneakyThrows;
-import viveredally.messages.TaskHandledMessage;
-import viveredally.messages.TaskStartedMessage;
 import viveredally.util.RoundRobinProvider;
 
-import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class MasterAgent extends Agent {
-    private int numberOfWorkers;
     private List<AID> agents;
     private RoundRobinProvider roundRobinProvider;
-
 
     @SneakyThrows
     @Override
@@ -28,7 +24,6 @@ public class MasterAgent extends Agent {
         super.setup();
         this.handleSetup();
 
-        final var self = this;
         this.addBehaviour(new CyclicBehaviour(this) {
             @Override
             public void action() {
@@ -36,47 +31,51 @@ public class MasterAgent extends Agent {
                 if (message == null) {
                     block();
                 } else {
-                    try {
-                        var obj = message.getContentObject();
-                        if (obj instanceof TaskStartedMessage) {
-                            var taskStartedMessage = (TaskStartedMessage) obj;
-                            System.out.println(self.getAID() + ": task " + taskStartedMessage.getUuid() + " started by " + taskStartedMessage.getAid() + " at " + taskStartedMessage.getStartupTime());
-                        } else if (obj instanceof TaskHandledMessage) {
-                            var taskHandledMessage = (TaskHandledMessage) obj;
-                            System.out.println(self.getAID() + ": task " + taskHandledMessage.getUuid() + " finished by " + taskHandledMessage.getAid() + " at " + taskHandledMessage.getStartupTime().plusSeconds(taskHandledMessage.getDurationInMillis() / 60));
-                        } else if (obj instanceof UUID) {
-                            var aid = agents.get(roundRobinProvider.getNext());
+                    var content = message.getContent();
+                    var aid = agents.get(roundRobinProvider.getNext());
 
-                            // Send task to worker
-                            var requestMessage = new ACLMessage(ACLMessage.INFORM);
-                            requestMessage.setContentObject(obj);
-                            requestMessage.addReceiver(aid);
-                            send(requestMessage);
-                        }
-                    } catch (UnreadableException | IOException e) {
-                        e.printStackTrace();
-                    }
+                    // Send task to worker
+                    var requestMessage = new ACLMessage(ACLMessage.INFORM);
+                    requestMessage.setContent(content);
+                    requestMessage.addReceiver(aid);
+                    send(requestMessage);
                 }
             }
         });
+
+        generateLoad();
     }
 
     private void handleSetup() throws StaleProxyException {
-        var args = (String[]) getArguments();
-        this.numberOfWorkers = Integer.parseInt(args[0]);
+        var args = Arrays.stream(getArguments()).toArray(Integer[]::new);
+        int numberOfWorkers = args[0];
         this.agents = new CopyOnWriteArrayList<>();
-        for (int i = 1; i <= this.numberOfWorkers * 2; i += 2) {
-            int ram = Integer.parseInt(args[i]);
-            int cpu = Integer.parseInt(args[i + 1]);
+        for (int i = 1; i <= numberOfWorkers * 2; i += 2) {
+            int ram = args[i];
+            int cpu = args[i + 1];
 
+            var workerAgentName = String.format("Worker %d", (i / 2 + 1));
             var workerAgent = this.getContainerController().createNewAgent(
-                    String.format("Worker %d", (i / 2 + 1)),
+                    workerAgentName,
                     WorkerAgent.class.getName(),
                     new Object[]{ram, cpu});
+            workerAgent.start();
 
-            this.agents.add(new AID(workerAgent.getName(), AID.ISLOCALNAME));
+            this.agents.add(new AID(workerAgentName, AID.ISLOCALNAME));
         }
 
-        this.roundRobinProvider = new RoundRobinProvider(this.numberOfWorkers);
+        this.roundRobinProvider = new RoundRobinProvider(numberOfWorkers);
+    }
+
+    @SneakyThrows
+    private void generateLoad() {
+        var masterAID = new AID("Master", AID.ISLOCALNAME);
+        for (int i = 0; i < 100; i++) {
+            var requestMessage = new ACLMessage(ACLMessage.INFORM);
+            requestMessage.setContent(UUID.randomUUID().toString());
+            requestMessage.addReceiver(masterAID);
+            send(requestMessage);
+            Thread.sleep(new Random().nextInt(2000));
+        }
     }
 }

@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static viveredally.util.Logger.log;
+
 public class WorkerAgent extends Agent {
     private RandomSpecsProvider randomSpecsProvider;
     private Specs workerSpecs;
@@ -32,12 +34,11 @@ public class WorkerAgent extends Agent {
     protected void setup() {
         super.setup();
 
-        int ram = Integer.parseInt((String) getArguments()[0]);
-        int cpu = Integer.parseInt((String) getArguments()[1]);
+        int ram = (int) getArguments()[0];
+        int cpu = (int) getArguments()[1];
         this.workerSpecs = new Specs(ram, cpu);
         this.specs = new Specs(0, 0);
         this.randomSpecsProvider = new RandomSpecsProvider(workerSpecs);
-
 
         this.executorService = Executors.newFixedThreadPool(2);
         this.tasks = new LinkedBlockingDeque<>();
@@ -54,23 +55,30 @@ public class WorkerAgent extends Agent {
                 if (message == null) {
                     block();
                 } else {
-                    var obj = message.getContentObject();
-                    if (obj instanceof UUID) {
-                        var uuid = (UUID) obj;
-                        Specs taskSpecs = self.randomSpecsProvider.getTaskSpecs();
+                    var content = message.getContent();
+                    Specs taskSpecs = self.randomSpecsProvider.getTaskSpecs();
 
-                        Task task = new Task(uuid, self.getAID(), taskSpecs);
-                        task.setState(TaskState.QUEUED);
-                        tasks.addLast(task);
-                        synchronized (self) {
-                            self.notify();
-                        }
+                    Task task = new Task(UUID.fromString(content), self.getAID(), taskSpecs);
+                    task.setQueuedTime(LocalDateTime.now());
+                    task.setState(TaskState.QUEUED);
+                    log(task);
+
+                    tasks.addLast(task);
+                    synchronized (self) {
+                        self.notify();
                     }
                 }
             }
         });
 
         this.compute();
+    }
+
+    @Override
+    protected void takeDown() {
+        super.takeDown();
+
+        this.isAlive.set(false);
     }
 
     private void compute() {
@@ -115,6 +123,8 @@ public class WorkerAgent extends Agent {
                 this.executorService.submit(() -> {
                     task.setStartedTime(LocalDateTime.now());
                     task.setState(TaskState.STARTED);
+                    log(task);
+
                     try {
                         // Simulate workload
                         Thread.sleep(new Random().nextInt(5000));
@@ -124,6 +134,8 @@ public class WorkerAgent extends Agent {
 
                     task.setFinishedTime(LocalDateTime.now());
                     task.setState(TaskState.FINISHED);
+                    log(task);
+
                     try {
                         this.readWriteLock.writeLock().lock();
                         this.specs.sub(task.getSpecs());
