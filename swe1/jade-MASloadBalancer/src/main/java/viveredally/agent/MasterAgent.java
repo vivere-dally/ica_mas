@@ -88,19 +88,19 @@ public class MasterAgent extends Agent {
     private void generateLoad() {
         new Thread(() -> {
             var masterAID = new AID("Master", AID.ISLOCALNAME);
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 50; i++) {
                 var requestMessage = new ACLMessage(ACLMessage.INFORM);
                 requestMessage.setContent(UUID.randomUUID().toString());
                 requestMessage.addReceiver(masterAID);
                 send(requestMessage);
                 try {
-                    Thread.sleep(new Random().nextInt(2000));
+                    Thread.sleep(new Random().nextInt(500));
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
             }
 
-            doDelete();
+//            doDelete();
         }).start();
     }
 }
