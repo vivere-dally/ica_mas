@@ -7,8 +7,7 @@ namespace masSharp
 	{
 		static void Main(string[] args)
 		{
-			var agentSystem = new AgentSystem("foo");
-			var greeter = agentSystem.AgentOf<GreeterAgent>();
+			var greeter = new GreeterAgent();
 			greeter.Tell("Mihai");
 			int sum = greeter.Ask<int, int>(123).Result;
 			Console.WriteLine(sum);
@@ -17,4 +16,3 @@ namespace masSharp
 		}
 	}
 }
-1

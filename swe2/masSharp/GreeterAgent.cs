@@ -3,7 +3,7 @@ using core;
 
 namespace masSharp
 {
-	public class GreeterAgent : Agent
+	public class GreeterAgent : Agent2
 	{
 		public GreeterAgent()
 		{
