@@ -1,5 +1,8 @@
-﻿using core.Exception;
+﻿using ConcurrentCollections;
+using core.DTO;
+using core.Exception;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -7,43 +10,42 @@ namespace core
 {
 	public abstract class Agent : IAgent
 	{
-		private AgentSystem agentSystem;
-		private readonly IDictionary<Type, Func<dynamic, dynamic>> handlers;
-		private readonly ISet<Type> handlerReturnTypes;
-		private readonly IDictionary<Type, Action<dynamic>> handlerResponses;
+		private readonly ConcurrentDictionary<Type, Func<dynamic, dynamic>> handlers = new();
+		private readonly ConcurrentHashSet<Type> handlerReturnTypes = new();
 
-		public Agent()
+		private readonly ConcurrentDictionary<Guid, Action<dynamic>> defferedResponses = new();
+
+		private readonly ConcurrentQueue<QueueItem> q = new();
+
+		protected Agent()
 		{
-			this.handlers = new Dictionary<Type, Func<object, object>>();
-			this.handlerReturnTypes = new HashSet<Type>();
-			this.handlerResponses = new Dictionary<Type, Action<dynamic>>();
+			this.Start();
 		}
 
-		Task IAgent.Start(AgentSystem agentSystem)
+		private void Start()
 		{
-			this.agentSystem = agentSystem;
-			return Task.Run(() =>
+			Task.Run(() =>
 			{
-				this.agentSystem.agents.TryGetValue(this, out var q);
 				while (true)
 				{
-					if (q.Count == 0)
+					if (q.IsEmpty)
 					{
 						Task.Delay(TimeSpan.FromMilliseconds(500)).Wait();
 						continue;
 					}
 
-					var obj = q.Dequeue();
-					var handler = this.handlers[obj.GetType()];
-					var result = handler(obj);
-					if (result == null)
+					if (!q.TryDequeue(out var queueItem))
 					{
 						continue;
 					}
 
-					if (this.handlerResponses.TryGetValue(result.GetType(), out Action<dynamic> action))
+					var handler = this.handlers[queueItem.Payload.GetType()];
+					var result = handler(queueItem.Payload);
+
+					if (this.defferedResponses.TryGetValue(queueItem.CorrelationId, out var action))
 					{
 						action(result);
+						this.defferedResponses.Remove(queueItem.CorrelationId, out var _);
 					}
 				}
 			});
@@ -52,10 +54,7 @@ namespace core
 		public void Tell<T>(T message)
 		{
 			this.ThrowIfHandlerDoesNotExists<T>();
-			if (this.agentSystem.agents.TryGetValue(this, out var q))
-			{
-				q.Enqueue(message);
-			}
+			this.q.Enqueue(new QueueItem(Guid.NewGuid(), message));
 		}
 
 		public Task<TOut> Ask<TIn, TOut>(TIn message)
@@ -63,11 +62,15 @@ namespace core
 			this.ThrowIfHandlerDoesNotExists<TIn>();
 			this.ThrowIfHandlerReturnTypeDoesNotExists<TOut>();
 
+			var correlationId = Guid.NewGuid();
 			var tcs = new TaskCompletionSource<TOut>();
-			this.handlerResponses.Add(typeof(TOut), (any) =>
+
+			this.defferedResponses.TryAdd(correlationId, (any) =>
 			{
 				tcs.TrySetResult(any);
 			});
+
+			this.q.Enqueue(new QueueItem(correlationId, message));
 
 			return tcs.Task;
 		}
@@ -75,7 +78,7 @@ namespace core
 		protected void Handle<T>(Action<T> handler)
 		{
 			this.ThrowIfHandlerExists<T>();
-			this.handlers.Add(typeof(T), (any) =>
+			this.handlers.TryAdd(typeof(T), (any) =>
 			{
 				handler(any);
 				return null;
@@ -85,7 +88,8 @@ namespace core
 		protected void Handle<TIn, TOut>(Func<TIn, TOut> handler)
 		{
 			this.ThrowIfHandlerExists<TIn>();
-			this.handlers.Add(typeof(TIn), (any) => handler(any));
+
+			this.handlers.TryAdd(typeof(TIn), (any) => handler(any));
 			this.handlerReturnTypes.Add(typeof(TOut));
 		}
 
@@ -107,10 +111,11 @@ namespace core
 
 		private void ThrowIfHandlerReturnTypeDoesNotExists<T>()
 		{
-			if (!this.handlers.ContainsKey(typeof(T)))
+			if (!this.handlerReturnTypes.Contains(typeof(T)))
 			{
 				throw new AgentActionReturnTypeNotFoundException<T>();
 			}
 		}
 	}
 }
+

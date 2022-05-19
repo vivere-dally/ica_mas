@@ -1,4 +1,5 @@
 ﻿using core;
+using masSharp.Pursuit;
 using System;
 
 namespace masSharp
@@ -7,11 +8,7 @@ namespace masSharp
 	{
 		static void Main(string[] args)
 		{
-			var greeter = new GreeterAgent();
-			greeter.Tell("Mihai");
-			int sum = greeter.Ask<int, int>(123).Result;
-			Console.WriteLine(sum);
-			greeter.Tell("Ionut");
+			var game = new Game();
 			Console.ReadKey();
 		}
 	}
