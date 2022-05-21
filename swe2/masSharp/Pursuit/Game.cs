@@ -34,7 +34,22 @@ namespace masSharp.Pursuit
 
 				return response;
 			});
+
 			Handle<SurroundingObservationRequest, SurroundingObservationResponse>((request) => CircularObservation(request.AgentType, request.X, request.Y));
+
+			Handle<MoveRequest, MoveResponse>((request) =>
+			{
+				var (agent, x, y, newX, newY) = request;
+				var response = new MoveResponse(!positionToAgent.ContainsKey(new(newX, newY)));
+				if (response.IsSuccessful)
+				{
+					positionToAgent.Remove(new(x, y), out var _);
+					positionToAgent[new(newX, newY)] = agent;
+					agentToPosition[agent] = new(x, y);
+				}
+
+				return response;	
+			});
 
 			this.InitializeAgents();
 			this.Start();
@@ -72,7 +87,7 @@ namespace masSharp.Pursuit
 					var tasks = Enumerable
 						.Range(0, Config.NO_AGENTS)
 						.OrderBy(_ => rnd.Next())
-						.Select((index) => this.agents[index].Ask<MoveRequest, MoveResponse>(new()))
+						.Select((index) => this.agents[index].Ask<MoveCommandRequest, MoveCommandResponse>(new()))
 						.ToArray();
 
 					Task.WaitAll(tasks);

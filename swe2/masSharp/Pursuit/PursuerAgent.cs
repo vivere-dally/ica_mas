@@ -1,32 +1,33 @@
 ﻿using masSharp.Message;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace masSharp.Pursuit
 {
 	public class PursuerAgent : PositionalAgent
 	{
-		public PursuerAgent(string name, Game game) : base(name, game)
+		public PursuerAgent(string name, Game game) : base(name, game, AgentType.PURSUER)
 		{
-			Handle<AgentTypeRequest, AgentTypeResponse>((_) =>
-			{
-				return new(AgentType.PURSUER);
-			});
 		}
 
-		protected override async Task Move()
+		protected override (int, int) GetUpcomingDirection(AgentType[] types, int[] xs, int[] ys)
 		{
-			var (types, xs, ys) = await game.Ask<SurroundingObservationRequest, SurroundingObservationResponse>(new(AgentType.PURSUER, base.x, base.y));
-
 			var pursuerDirections = new List<(int, int)>();
 			var evaderDirections = new List<(int, int)>();
 			foreach (var (type, x, y) in types.Zip(xs, ys))
 			{
 				if (IsAdjucent(base.x, base.y, x, y) && type == AgentType.EVADER)
 				{
-					// TODO capture
-					continue;
+					var captureResponse = game
+						.Ask<CaptureRequest, CaptureResponse>(new(this, x, y))
+						.Result;
+
+					if (captureResponse.IsSuccessful)
+					{
+						L($"Captured from ({base.x}, {base.y}) to ({x}, {y})");
+						continue;
+					}
 				}
 
 				var direction = GetDirection(base.x, base.y, x, y);
@@ -40,13 +41,20 @@ namespace masSharp.Pursuit
 				}
 			}
 
-			if (evaderDirections.Count == 0)
+			if (evaderDirections.Count == 0 && pursuerDirections.Count == 0)
 			{
-				// TODO move towards other pursuers
-				return;
+				var rnd = new Random();
+				var dX = rnd.Next(-1, 2);
+				var dY = rnd.Next(-1, 2);
+				return (dX, dY);
 			}
 
-			// TODO move towards evaders
+			if (evaderDirections.Count == 0)
+			{
+				return ComputeDirection(pursuerDirections, true);
+			}
+
+			return ComputeDirection(evaderDirections, true);
 		}
 	}
 }

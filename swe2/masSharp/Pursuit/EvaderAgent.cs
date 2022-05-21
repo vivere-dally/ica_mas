@@ -1,24 +1,17 @@
 ﻿using masSharp.Message;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace masSharp.Pursuit
 {
 	public class EvaderAgent : PositionalAgent
 	{
-		public EvaderAgent(string name, Game game) : base(name, game)
+		public EvaderAgent(string name, Game game) : base(name, game, AgentType.EVADER)
 		{
-			Handle<AgentTypeRequest, AgentTypeResponse>((_) =>
-			{
-				return new(AgentType.EVADER);
-			});
 		}
 
-		protected override async Task Move()
+		protected override (int, int) GetUpcomingDirection(AgentType[] types, int[] xs, int[] ys)
 		{
-			var (types, xs, ys) = await game.Ask<SurroundingObservationRequest, SurroundingObservationResponse>(new(AgentType.EVADER, base.x, base.y));
-
 			var pursuerDirections = new List<(int, int)>();
 			foreach (var (type, x, y) in types.Zip(xs, ys))
 			{
@@ -30,21 +23,10 @@ namespace masSharp.Pursuit
 
 			if (pursuerDirections.Count == 0)
 			{
-				return;
+				return (0, 0);
 			}
 
-			int left = 0, right = 0, up = 0, down = 0;
-			foreach (var (x, y) in pursuerDirections)
-			{
-				left += x < 0 ? 1 : 0;
-				right += x > 0 ? 1 : 0;
-				up += y < 0 ? 1 : 0;
-				down += y > 0 ? 1 : 0;
-			}
-
-			int dX = left <= right ? -1 : 1;
-			int dY = up <= right ? -1 : 1;
-
+			return ComputeDirection(pursuerDirections, false);
 		}
 	}
 }
