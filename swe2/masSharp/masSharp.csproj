@@ -9,4 +9,8 @@
     <ProjectReference Include="..\core2\core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="NewFolder\" />
+  </ItemGroup>
+
 </Project>

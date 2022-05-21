@@ -11,14 +11,16 @@ namespace core
 	public abstract class Agent : IAgent
 	{
 		private readonly ConcurrentDictionary<Type, Func<dynamic, dynamic>> handlers = new();
-		private readonly ConcurrentHashSet<Type> handlerReturnTypes = new();
+		private readonly ConcurrentHashSet<Tuple<Type, Type>> handlerReturnTypes = new();
 
 		private readonly ConcurrentDictionary<Guid, Action<dynamic>> defferedResponses = new();
 
 		private readonly ConcurrentQueue<QueueItem> q = new();
+		private readonly string name;
 
-		protected Agent()
+		protected Agent(string name)
 		{
+			this.name = name;
 			this.Start();
 		}
 
@@ -51,16 +53,34 @@ namespace core
 			});
 		}
 
+		public string Name { get => this.name; }
+
 		public void Tell<T>(T message)
 		{
 			this.ThrowIfHandlerDoesNotExists<T>();
 			this.q.Enqueue(new QueueItem(Guid.NewGuid(), message));
 		}
 
+		public void Tell<TIn, TOut>(IAgent sender, TIn message)
+		{
+			this.ThrowIfHandlerDoesNotExists<TIn>();
+
+			var correlationId = Guid.NewGuid();
+			this.defferedResponses.TryAdd(correlationId, (any) =>
+			{
+				if (any != null)
+				{
+					sender.Tell<TOut>(any);
+				}
+			});
+
+			this.q.Enqueue(new QueueItem(correlationId, message));
+		}
+
 		public Task<TOut> Ask<TIn, TOut>(TIn message)
 		{
 			this.ThrowIfHandlerDoesNotExists<TIn>();
-			this.ThrowIfHandlerReturnTypeDoesNotExists<TOut>();
+			this.ThrowIfHandlerReturnTypeDoesNotExists<TIn, TOut>();
 
 			var correlationId = Guid.NewGuid();
 			var tcs = new TaskCompletionSource<TOut>();
@@ -90,7 +110,12 @@ namespace core
 			this.ThrowIfHandlerExists<TIn>();
 
 			this.handlers.TryAdd(typeof(TIn), (any) => handler(any));
-			this.handlerReturnTypes.Add(typeof(TOut));
+			this.handlerReturnTypes.Add(new Tuple<Type, Type>(typeof(TIn), typeof(TOut)));
+		}
+
+		public void L(dynamic message)
+		{
+			Console.WriteLine($"[{this.name}]@[{DateTime.UtcNow.TimeOfDay}]-{message}");
 		}
 
 		private void ThrowIfHandlerExists<T>()
@@ -109,11 +134,11 @@ namespace core
 			}
 		}
 
-		private void ThrowIfHandlerReturnTypeDoesNotExists<T>()
+		private void ThrowIfHandlerReturnTypeDoesNotExists<TIn, TOut>()
 		{
-			if (!this.handlerReturnTypes.Contains(typeof(T)))
+			if (!this.handlerReturnTypes.Contains(new Tuple<Type, Type>(typeof(TIn), typeof(TOut))))
 			{
-				throw new AgentActionReturnTypeNotFoundException<T>();
+				throw new AgentActionReturnTypeNotFoundException<TIn, TOut>();
 			}
 		}
 	}

@@ -19,6 +19,10 @@ namespace core
 		/// <param name="message">The message</param>
 		/// <returns></returns>
 		Task<TOut> Ask<TIn, TOut>(TIn message);
+
+		void Tell<TIn, TOut>(IAgent sender, TIn message);
+
+		string Name { get; }
 	}
 }
 

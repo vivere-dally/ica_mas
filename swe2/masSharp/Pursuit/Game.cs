@@ -1,5 +1,5 @@
 ﻿using core;
-using masSharp.Message.Position;
+using masSharp.Message;
 using masSharp.Pursuit.Component;
 using System;
 using System.Linq;
@@ -10,13 +10,13 @@ namespace masSharp.Pursuit
 	public class Game : Agent
 	{
 		private readonly PositionManager positionManager = new();
-		
+
 		private readonly IAgent[] agents = new IAgent[Config.NO_AGENTS];
 
-		public Game()
+		public Game() : base("game")
 		{
-			// TODO - maybe implement forwarding
-			Handle<IsPositionOccupied, bool>((position) => positionManager.Ask<IsPositionOccupied, bool>(position).Result);
+			Handle<LockPositionRequest, LockPositionResponse>((request) =>
+				positionManager.Ask<LockPositionRequest, LockPositionResponse>(request).Result);
 
 			this.InitializeAgents();
 		}
@@ -25,12 +25,12 @@ namespace masSharp.Pursuit
 		{
 			for (int i = 0; i < Config.NO_PURSUERS; i++)
 			{
-				agents[i] = new PursuerAgent(this);
+				agents[i] = new PursuerAgent($"P{i}", this);
 			}
 
-			for (int i = Config.NO_PURSUERS; i < Config.NO_AGENTS; i++)
+			for (int i = Config.NO_PURSUERS, j = 0; i < Config.NO_AGENTS; i++, j++)
 			{
-				agents[i] = new EvaderAgent(this);
+				agents[i] = new EvaderAgent($"E{j}", this);
 			}
 		}
 

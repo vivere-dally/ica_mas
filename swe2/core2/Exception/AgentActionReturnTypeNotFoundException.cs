@@ -3,9 +3,10 @@
 namespace core.Exception
 {
 	[Serializable]
-	class AgentActionReturnTypeNotFoundException<T> : System.Exception
+	class AgentActionReturnTypeNotFoundException<TIn, TOut> : System.Exception
 	{
-		public AgentActionReturnTypeNotFoundException() : base($"There is no handler registered with return type type {typeof(T)}.")
+		public AgentActionReturnTypeNotFoundException()
+			: base($"There is no handler registered with return type ({typeof(TIn)}, {typeof(TOut)}).")
 		{
 		}
 	}
