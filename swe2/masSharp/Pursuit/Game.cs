@@ -4,6 +4,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace masSharp.Pursuit
@@ -15,6 +16,9 @@ namespace masSharp.Pursuit
 		private readonly ConcurrentDictionary<IAgent, Tuple<int, int>> agentToPosition = new();
 		private readonly ConcurrentDictionary<Tuple<int, int>, IAgent> positionToAgent = new();
 
+		private ulong no_initialized_agents = 0;
+		private ulong no_evaders_left = Config.NO_EVADERS;
+
 		public Game() : base("game")
 		{
 			Handle<LockPositionRequest, LockPositionResponse>((request) =>
@@ -25,13 +29,15 @@ namespace masSharp.Pursuit
 				{
 					positionToAgent[new(x, y)] = agent;
 					agentToPosition[agent] = new(x, y);
+					Interlocked.Increment(ref no_initialized_agents);
 				}
 
 				return response;
 			});
-			Handle<ObservationRequest, ObservationResponse>((request) => CircularObservation(request.AgentType, request.X, request.Y));
+			Handle<SurroundingObservationRequest, SurroundingObservationResponse>((request) => CircularObservation(request.AgentType, request.X, request.Y));
 
 			this.InitializeAgents();
+			this.Start();
 		}
 
 		private void InitializeAgents()
@@ -49,19 +55,33 @@ namespace masSharp.Pursuit
 
 		private void Start()
 		{
-			for (int _ = 0; _ < Config.NO_ROUNDS; _++)
+			Task.Run(() =>
 			{
-				var rnd = new Random();
-				Parallel.ForEach(
-					Enumerable.Range(0, Config.NO_AGENTS).OrderBy(_ => rnd.Next()),
-					(index) =>
+				while (Interlocked.Read(ref this.no_initialized_agents) < Config.NO_AGENTS)
 				{
-					// Perform agent actions
-				});
-			}
+					Task.Delay(TimeSpan.FromMilliseconds(500)).Wait();
+				}
+
+				int roundCount = 1;
+				var rnd = new Random();
+				while (Interlocked.Read(ref this.no_evaders_left) != 0)
+				{
+					L($"Round {roundCount}");
+					L($"Evaders Left {Interlocked.Read(ref this.no_evaders_left)}");
+
+					var tasks = Enumerable
+						.Range(0, Config.NO_AGENTS)
+						.OrderBy(_ => rnd.Next())
+						.Select((index) => this.agents[index].Ask<MoveRequest, MoveResponse>(new()))
+						.ToArray();
+
+					Task.WaitAll(tasks);
+					roundCount++;
+				}
+			});
 		}
 
-		private ObservationResponse CircularObservation(AgentType agentType, int x, int y)
+		private SurroundingObservationResponse CircularObservation(AgentType agentType, int x, int y)
 		{
 			List<AgentType> agentTypes = new();
 			List<int> xs = new();

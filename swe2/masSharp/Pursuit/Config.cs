@@ -4,7 +4,6 @@
 	{
 		public const int MAP_LENGTH = 30;
 		public const int NO_ROUNDS = 10;
-		public const int SPEED = 2;
 
 		public const int NO_PURSUERS = 3;
 		public const int PURSUER_OBSERVATION_RANGE = 5;

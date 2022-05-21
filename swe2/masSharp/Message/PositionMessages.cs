@@ -1,12 +1,14 @@
 ﻿using core;
 using masSharp.Pursuit;
-using System;
 
 namespace masSharp.Message
 {
-	public record LockPositionRequest(IAgent agent, int X, int Y);
+	public record LockPositionRequest(IAgent Agent, int X, int Y);
 	public record LockPositionResponse(bool IsLocked);
 
-	public record ObservationRequest(AgentType AgentType, int X, int Y);
-	public record ObservationResponse(AgentType[] AgentTypes, int[] Xs, int[] Ys);
+	public record MoveRequest();
+	public record MoveResponse();
+
+	public record SurroundingObservationRequest(AgentType AgentType, int X, int Y);
+	public record SurroundingObservationResponse(AgentType[] AgentTypes, int[] Xs, int[] Ys);
 }
