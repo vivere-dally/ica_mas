@@ -7,7 +7,6 @@ namespace masSharp.Pursuit
 {
 	public abstract class PositionalAgent : Agent
 	{
-		private readonly string name;
 		protected readonly Game game;
 		private readonly AgentType agentType;
 		protected int x;
@@ -15,7 +14,6 @@ namespace masSharp.Pursuit
 
 		public PositionalAgent(string name, Game game, AgentType agentType) : base(name)
 		{
-			this.name = name;
 			this.game = game;
 			this.agentType = agentType;
 
@@ -43,27 +41,16 @@ namespace masSharp.Pursuit
 						new(this.agentType, this.x, this.y))
 					.Result;
 				var (dX, dY) = this.GetUpcomingDirection(types, xs, ys);
-
-				int newX = this.x + dX;
-				if (newX < 0 || newX >= Config.MAP_LENGTH)
-				{
-					dX = 0;
-				}
-
-				int newY = this.y + dY;
-				if (newY < 0 || newY >= Config.MAP_LENGTH)
-				{
-					dY = 0;
-				}
+				dX = IsInBounds(this.x, dX);
+				dY = IsInBounds(this.y, dY);
 
 				if ((dX, dY) == (0, 0))
 				{
-					L("will stay put");
+					L($"will stay put on ({x}, {y})");
 					return new();
 				}
 
-				newX = this.x + dX;
-				newY = this.y + dY;
+				int newX = this.x + dX, newY = this.y + dY;
 				var response = game
 					.Ask<MoveRequest, MoveResponse>(
 						new(this, this.x, this.y, newX, newY))
@@ -77,16 +64,18 @@ namespace masSharp.Pursuit
 				}
 				else
 				{
-					L($"Could not move to ({newX}, {newY})");
+					L($"could not move from ({x}, {y}) to ({newX}, {newY})");
 				}
 
 				return new();
 			});
 
-
 			GeneratePosition();
 			this.game.Tell<LockPositionRequest, LockPositionResponse>(this, new(this, x, y));
+
 		}
+
+		public AgentType AgentType => agentType;
 
 		private void GeneratePosition()
 		{
@@ -136,9 +125,20 @@ namespace masSharp.Pursuit
 
 			int modifier = chase ? 1 : -1;
 			int dX = left <= right ? -1 * modifier : 1 * modifier;
-			int dY = up <= right ? -1 * modifier: 1 * modifier;
+			int dY = up <= right ? -1 * modifier : 1 * modifier;
 
 			return (dX, dY);
 		}
+		private static int IsInBounds(int x, int d)
+		{
+			int newX = x + d;
+			if (newX < 0 || newX >= Config.MAP_LENGTH)
+			{
+				d = 0;
+			}
+
+			return d;
+		}
+
 	}
 }

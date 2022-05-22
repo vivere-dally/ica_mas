@@ -41,7 +41,15 @@ namespace masSharp.Pursuit
 				}
 			}
 
-			if (evaderDirections.Count == 0 && pursuerDirections.Count == 0)
+			//if (evaderDirections.Count == 0 && pursuerDirections.Count == 0)
+			//{
+			//	var rnd = new Random();
+			//	var dX = rnd.Next(-1, 2);
+			//	var dY = rnd.Next(-1, 2);
+			//	return (dX, dY);
+			//}
+
+			if (evaderDirections.Count == 0)
 			{
 				var rnd = new Random();
 				var dX = rnd.Next(-1, 2);
@@ -49,10 +57,10 @@ namespace masSharp.Pursuit
 				return (dX, dY);
 			}
 
-			if (evaderDirections.Count == 0)
-			{
-				return ComputeDirection(pursuerDirections, true);
-			}
+			//if (evaderDirections.Count == 0)
+			//{
+			//	return ComputeDirection(pursuerDirections, true);
+			//}
 
 			return ComputeDirection(evaderDirections, true);
 		}

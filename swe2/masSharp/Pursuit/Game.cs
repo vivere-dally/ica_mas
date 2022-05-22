@@ -1,4 +1,5 @@
-﻿using core;
+﻿using ConcurrentCollections;
+using core;
 using masSharp.Message;
 using System;
 using System.Collections.Concurrent;
@@ -11,13 +12,13 @@ namespace masSharp.Pursuit
 {
 	public class Game : Agent
 	{
-		private readonly IAgent[] agents = new IAgent[Config.NO_AGENTS];
+		private readonly PositionalAgent[] agents = new PositionalAgent[Config.NO_AGENTS];
 
-		private readonly ConcurrentDictionary<IAgent, Tuple<int, int>> agentToPosition = new();
-		private readonly ConcurrentDictionary<Tuple<int, int>, IAgent> positionToAgent = new();
+		private readonly ConcurrentDictionary<Tuple<int, int>, PositionalAgent> positionToAgent = new();
 
 		private ulong no_initialized_agents = 0;
 		private ulong no_evaders_left = Config.NO_EVADERS;
+		private readonly ConcurrentHashSet<PositionalAgent> capturedEvaders = new();
 
 		public Game() : base("game")
 		{
@@ -27,8 +28,7 @@ namespace masSharp.Pursuit
 				var response = new LockPositionResponse(!positionToAgent.ContainsKey(new(x, y)));
 				if (response.IsLocked)
 				{
-					positionToAgent[new(x, y)] = agent;
-					agentToPosition[agent] = new(x, y);
+					positionToAgent[new(x, y)] = agent as PositionalAgent;
 					Interlocked.Increment(ref no_initialized_agents);
 				}
 
@@ -44,11 +44,25 @@ namespace masSharp.Pursuit
 				if (response.IsSuccessful)
 				{
 					positionToAgent.Remove(new(x, y), out var _);
-					positionToAgent[new(newX, newY)] = agent;
-					agentToPosition[agent] = new(x, y);
+					positionToAgent[new(newX, newY)] = agent as PositionalAgent;
 				}
 
-				return response;	
+				return response;
+			});
+
+			Handle<CaptureRequest, CaptureResponse>((request) =>
+			{
+				var (agent, targetX, targetY) = request;
+				var position = new Tuple<int, int>(targetX, targetY);
+				if (positionToAgent.ContainsKey(position))
+				{
+					Interlocked.Decrement(ref no_evaders_left);
+					positionToAgent.Remove(position, out var capturedAgent);
+					capturedEvaders.Add(capturedAgent);
+					return new(true);
+				}
+
+				return new(false);
 			});
 
 			this.InitializeAgents();
@@ -72,27 +86,31 @@ namespace masSharp.Pursuit
 		{
 			Task.Run(() =>
 			{
-				while (Interlocked.Read(ref this.no_initialized_agents) < Config.NO_AGENTS)
+				while (IsRunning && Interlocked.Read(ref this.no_initialized_agents) < Config.NO_AGENTS)
 				{
 					Task.Delay(TimeSpan.FromMilliseconds(500)).Wait();
 				}
 
 				int roundCount = 1;
 				var rnd = new Random();
-				while (Interlocked.Read(ref this.no_evaders_left) != 0)
+				while (IsRunning && Interlocked.Read(ref this.no_evaders_left) != 0)
 				{
+					Console.WriteLine(string.Concat(Enumerable.Repeat("-", 70)));
 					L($"Round {roundCount}");
 					L($"Evaders Left {Interlocked.Read(ref this.no_evaders_left)}");
 
 					var tasks = Enumerable
 						.Range(0, Config.NO_AGENTS)
 						.OrderBy(_ => rnd.Next())
+						.Where((index) => !this.capturedEvaders.Contains(this.agents[index]))
 						.Select((index) => this.agents[index].Ask<MoveCommandRequest, MoveCommandResponse>(new()))
 						.ToArray();
 
 					Task.WaitAll(tasks);
 					roundCount++;
 				}
+
+				L("Captured all evaders");
 			});
 		}
 
@@ -113,7 +131,7 @@ namespace masSharp.Pursuit
 			for (int row = 0; row < Config.MAP_LENGTH; row++)
 			{
 				int a = row - x;
-				if (a < 0)
+				if (a < 0 || row == x)
 				{
 					continue;
 				}
@@ -121,17 +139,17 @@ namespace masSharp.Pursuit
 				for (int col = 0; col < Config.MAP_LENGTH; col++)
 				{
 					int b = col - y;
-					if (col < 0)
+					if (b < 0 || col == y)
 					{
 						continue;
 					}
 
-					var position = new Tuple<int, int>(a, b);
+					var position = new Tuple<int, int>(row, col);
 					if (a * a + b * b <= rSq && positionToAgent.ContainsKey(position))
 					{
 						var agent = positionToAgent[position];
-						var agentTypeResponse = agent.Ask<AgentTypeRequest, AgentTypeResponse>(new()).Result;
-						agentTypes.Add(agentTypeResponse.AgentType);
+						//var agentTypeResponse = agent.Ask<AgentTypeRequest, AgentTypeResponse>(new()).Result;
+						agentTypes.Add(agent.AgentType);
 						xs.Add(a);
 						ys.Add(b);
 					}

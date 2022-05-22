@@ -4,12 +4,16 @@ using core.Exception;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace core
 {
 	public abstract class Agent : IAgent
 	{
+		private readonly CancellationTokenSource cts = new();
+		private ulong isRunning = 0L;
+
 		private readonly ConcurrentDictionary<Type, Func<dynamic, dynamic>> handlers = new();
 		private readonly ConcurrentHashSet<Tuple<Type, Type>> handlerReturnTypes = new();
 
@@ -21,7 +25,17 @@ namespace core
 		protected Agent(string name)
 		{
 			this.name = name;
+
+			Console.CancelKeyPress += Console_CancelKeyPress;
+
 			this.Start();
+		}
+
+		private void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
+		{
+			L("shutting down...");
+			Interlocked.Increment(ref isRunning);
+			cts.Cancel();
 		}
 
 		private void Start()
@@ -50,10 +64,12 @@ namespace core
 						this.defferedResponses.Remove(queueItem.CorrelationId, out var _);
 					}
 				}
-			});
+			}, cts.Token);
 		}
 
 		public string Name { get => this.name; }
+		public bool IsRunning { get => Interlocked.Read(ref isRunning) == 0; }
+		protected CancellationToken CancellationToken { get => cts.Token; }
 
 		public void Tell<T>(T message)
 		{
