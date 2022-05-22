@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="masSharp.Pursuit.Game">
+    <Position X="7" Y="1" Width="1.75" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAACAAgRBYAAAAAAAAAAAAAAAAAIAAAAAAAAA=</HashCode>
+      <FileName>Pursuit\Game.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="core.Agent">
+    <Position X="4.5" Y="1" Width="2" />
+    <TypeIdentifier />
+    <Lollipop Position="0.2" />
+  </Class>
+  <Class Name="masSharp.Pursuit.PositionalAgent">
+    <Position X="4.75" Y="4" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>ACAEAACAAAAIgAAAAAAAAAAAABAAAAAMgABgAAAAAAA=</HashCode>
+      <FileName>Pursuit\PositionalAgent.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="masSharp.Pursuit.EvaderAgent">
+    <Position X="7.25" Y="6.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>ACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Pursuit\EvaderAgent.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="masSharp.Pursuit.PursuerAgent">
+    <Position X="7.25" Y="4.25" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>ACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>Pursuit\PursuerAgent.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="masSharp.Pursuit.Config">
+    <Position X="2" Y="5.75" Width="2.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAICAAAAAAAAAAQAEAAAAAAIAgAAAAAAAAAAAAA=</HashCode>
+      <FileName>Pursuit\Config.cs</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Interface Name="core.IAgent">
+    <Position X="2.25" Y="1" Width="2" />
+    <TypeIdentifier />
+  </Interface>
+  <Enum Name="masSharp.Pursuit.AgentType">
+    <Position X="2.5" Y="4" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAgAAA=</HashCode>
+      <FileName>Pursuit\AgentType.cs</FileName>
+    </TypeIdentifier>
+  </Enum>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

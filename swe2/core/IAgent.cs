@@ -1,14 +1,28 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace core
 {
 	public interface IAgent
 	{
-		public void Tell<T>(T t) where T : Type;
-		public void Tell<T>(T t, IAgent sender) where T : Type;
+		/// <summary>
+		/// Fire and forget message
+		/// </summary>
+		/// <typeparam name="T">Message type</typeparam>
+		/// <param name="message">The message</param>
+		void Tell<T>(T message);
+
+		/// <summary>
+		/// Request and response message
+		/// </summary>
+		/// <typeparam name="TIn">Message type</typeparam>
+		/// <typeparam name="TOut">Return type</typeparam>
+		/// <param name="message">The message</param>
+		/// <returns></returns>
+		Task<TOut> Ask<TIn, TOut>(TIn message);
+
+		void Tell<TIn, TOut>(IAgent sender, TIn message);
+
+		string Name { get; }
 	}
 }
+
