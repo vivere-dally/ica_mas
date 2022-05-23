@@ -40,6 +40,12 @@ namespace masSharp.Pursuit
 			Handle<MoveRequest, MoveResponse>((request) =>
 			{
 				var (agent, x, y, newX, newY) = request;
+				if ((agent as PositionalAgent).AgentType == AgentType.EVADER &&
+					capturedEvaders.Contains(agent))
+				{
+					return new(false);
+				}
+
 				var response = new MoveResponse(!positionToAgent.ContainsKey(new(newX, newY)));
 				if (response.IsSuccessful)
 				{
@@ -131,15 +137,10 @@ namespace masSharp.Pursuit
 			for (int row = 0; row < Config.MAP_LENGTH; row++)
 			{
 				int a = row - x;
-				if (a < 0 || row == x)
-				{
-					continue;
-				}
-
 				for (int col = 0; col < Config.MAP_LENGTH; col++)
 				{
 					int b = col - y;
-					if (b < 0 || col == y)
+					if (row == x && col == y)
 					{
 						continue;
 					}
@@ -150,8 +151,8 @@ namespace masSharp.Pursuit
 						var agent = positionToAgent[position];
 						//var agentTypeResponse = agent.Ask<AgentTypeRequest, AgentTypeResponse>(new()).Result;
 						agentTypes.Add(agent.AgentType);
-						xs.Add(a);
-						ys.Add(b);
+						xs.Add(row);
+						ys.Add(col);
 					}
 				}
 			}
